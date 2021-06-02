@@ -1,0 +1,63 @@
+version: "2"
+services:
+    mysql:
+        image: mysql:5.7
+        restart: always
+        environment:
+            MYSQL_DATABASE: "main"
+            # You can use whatever password you like
+            MYSQL_PASSWORD: "12345678"
+            # Password for root access
+            MYSQL_ROOT_PASSWORD: "12345678"
+        ports:
+            # <Port exposed> : < MySQL Port running inside container>
+            - "3307:3306"
+        expose:
+            # Opens port 3306 on the container
+            - "3306"
+        command:
+            [
+                "mysqld",
+                "--character-set-server=utf8mb4",
+                "--collation-server=utf8mb4_unicode_ci",
+            ]
+    redis:
+        image: "redis:alpine"
+        command: redis-server
+        restart: always
+        ports:
+            - "6379:6379"
+        expose:
+            - "6379"
+        environment:
+            - REDIS_REPLICATION_MODE=master
+    celery_flower:
+        image: mher/flower
+        command: flower --broker=redis://redis:6379/0 --port=8888
+        ports:
+            - 8888:8888
+        restart: always
+    celery_worker:
+        build: https://github.com/cPoolChia/ChiaFarmerManager-Backend.git#main
+        command: poetry run celery -A app.celery.celery worker -E -l info
+        environment:
+            - ENV_STATE=prod
+        restart: always
+        scale: 2
+    celery_beat:
+        build: https://github.com/cPoolChia/ChiaFarmerManager-Backend.git#main
+        command: poetry run celery -A app.celery.celery beat
+        environment:
+            - ENV_STATE=prod
+        restart: always
+    app:
+        build: https://github.com/cPoolChia/ChiaFarmerManager-Frontend.git#master
+        expose:
+            - "80"
+    api:
+        build: https://github.com/cPoolChia/ChiaFarmerManager-Backend.git#main
+        expose:
+            - "3000"
+        environment:
+            - ENV_STATE=prod
+        restart: always
